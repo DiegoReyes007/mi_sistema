@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    <link rel="icon" href="{{ url_for('static', filename='img/favicon.ico') }}">
+    <script>
+        // Código JavaScript para captura de ubicación y foto
+        function getLocationAndPhoto(checkType) {
+            if (!navigator.geolocation) {
+                alert("La geolocalización no está soportada en este navegador.");
+                return;
+            }
+
+            navigator.geolocation.getCurrentPosition(
+                position => {
+                    let locationInput = document.getElementById("location_" + checkType);
+                    locationInput.value = position.coords.latitude + "," + position.coords.longitude;
+                    capturePhoto(checkType);
+                },
+                error => {
+                    alert("No se pudo obtener la ubicación: " + error.message);
+                }
+            );
+        }
+
+        function capturePhoto(checkType) {
+            let video = document.getElementById("video");
+            let canvas = document.createElement("canvas");
+            let context = canvas.getContext("2d");
+
+            if (video.videoWidth === 0 || video.videoHeight === 0) {
+                alert("Espera a que la cámara esté lista.");
+                return;
+            }
+
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            context.drawImage(video, 0, 0, canvas.width, canvas.height);
+            let imageData = canvas.toDataURL("image/jpeg");
+
+            let photoInput = document.getElementById("photo_" + checkType);
+            photoInput.value = imageData;
+
+            document.getElementById(checkType + "-form").submit();
+        }
+
+        function startCamera() {
+            let video = document.getElementById("video");
+            navigator.mediaDevices.getUserMedia({ video: true })
+                .then(stream => {
+                    video.srcObject = stream;
+                })
+                .catch(error => {
+                    alert("Error accediendo a la cámara: " + error.message);
+                });
+        }
+
+        window.onload = startCamera;
+    </script>
+</head>
+<body>
+    <h2>Bienvenido, {{ name }}</h2>
+
+    <!-- Mostrar mensajes Flash -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            <div class="alert-container">
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }}">{{ message }}</div>
+                {% endfor %}
+            </div>
+        {% endif %}
+    {% endwith %}
+
+    <!-- Cámara -->
+    <video id="video" autoplay style="width: 100%; max-width: 300px;"></video>
+
+    <!-- Check-In -->
+    <form id="checkin-form" method="POST" action="/check">
+        <input type="hidden" name="check_type" value="Check-In">
+        <input type="hidden" id="location_checkin" name="location">
+        <input type="hidden" id="photo_checkin" name="photo">
+        <button type="button" class="btn btn-primary" onclick="getLocationAndPhoto('checkin')">Check-In</button>
+    </form>
+<br>
+<br>
+    <!-- Check-Out -->
+    <form id="checkout-form" method="POST" action="/check">
+        <input type="hidden" name="check_type" value="Check-Out">
+        <input type="hidden" id="location_checkout" name="location">
+        <input type="hidden" id="photo_checkout" name="photo">
+        <button type="button" class="btn btn-danger" onclick="getLocationAndPhoto('checkout')">Check-Out</button>
+    </form>
+    <br>
+    <br>
+    <br>
+    <a href="/logout">Cerrar sesión</a>
+
+
+
+</body>
+</html>

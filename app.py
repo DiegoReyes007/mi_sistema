@@ -7,6 +7,8 @@ import csv
 from datetime import datetime
 import pandas as pd
 import os
+import pytz
+
 
 app = Flask(__name__)
 app.secret_key = 'tu_clave_secreta_segura'  # Cambia esto en producción
@@ -138,12 +140,14 @@ def check():
     if 'user_id' not in session:
         flash("Debes iniciar sesión", "warning")
         return redirect(url_for('index'))
+    zona_horaria = pytz.timezone('America/Mexico_City')
     
     check_type = request.form['check_type']
     location = request.form['location']
     photo = request.form['photo']
-    fecha = datetime.now().strftime('%Y-%m-%d')
-    hora = datetime.now().strftime('%H:%M:%S')
+    ahora = datetime.now(zona_horaria)
+    fecha = ahora.strftime('%Y-%m-%d')
+    hora = ahora.strftime('%H:%M:%S')
     
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -312,7 +316,7 @@ def export_csv():
         download_name='registros_asistencia.csv'
     )
 
-    
+
 
 # Inicialización de la base de datos y ejecución de la aplicación
 if __name__ == '__main__':

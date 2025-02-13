@@ -8,7 +8,7 @@ from datetime import datetime
 import pandas as pd
 import os
 import pytz
-
+import psycopg2
 
 app = Flask(__name__)
 app.secret_key = 'tu_clave_secreta_segura'  # Cambia esto en producción
@@ -24,11 +24,11 @@ def eliminar_registro(id):
     return redirect(url_for('admin'))  # Redirigir al panel de admin después de eliminar
 
 
-# Conexión a la base de datos
 def get_db_connection():
-    conn = sqlite3.connect('database.db')
-    conn.row_factory = sqlite3.Row
-    return conn
+    DATABASE_URL = "postgresql://database_c07f_user:qRy1dJvExdCKQMFUUrNqJFvrXupP5ETs@dpg-cun45f2n91rc73ca3bag-a.oregon-postgres.render.com/database_c07f"
+    
+    conn = psycopg2.connect(DATABASE_URL)
+    return conn  # No necesitas `row_factory` en PostgreSQL
 
 # Inicialización de la base de datos
 def init_db():

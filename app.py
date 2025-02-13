@@ -17,12 +17,12 @@ app.secret_key = 'tu_clave_secreta_segura'  # Cambia esto en producción
 
 @app.route('/admin/eliminar_registro/<int:id>', methods=['POST'])
 def eliminar_registro(id):
-    conn = get_db_connection ()
-    conn.execute('DELETE FROM registros WHERE id = ?' , (id,))
-    conn.commit ()
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute('DELETE FROM registros WHERE id = %s', (id,))
+    conn.commit()
+    cursor.close()
     conn.close()
-    return redirect(url_for('admin'))  # Redirigir al panel de admin después de eliminar
-
 
 def get_db_connection():
     DATABASE_URL = "postgresql://database_c07f_user:qRy1dJvExdCKQMFUUrNqJFvrXupP5ETs@dpg-cun45f2n91rc73ca3bag-a.oregon-postgres.render.com/database_c07f"
@@ -35,16 +35,14 @@ def init_db():
     conn = get_db_connection()
     cursor = conn.cursor()
     
-    # Crear tabla de usuarios si no existe
     cursor.execute('''CREATE TABLE IF NOT EXISTS users (
-                      id INTEGER PRIMARY KEY AUTOINCREMENT,
+                      id SERIAL PRIMARY KEY,
                       name TEXT NOT NULL UNIQUE,
                       password TEXT NOT NULL,
                       role TEXT NOT NULL)''')
-    
-    # Crear tabla de registros si no existe
+
     cursor.execute('''CREATE TABLE IF NOT EXISTS registros (
-                      id INTEGER PRIMARY KEY AUTOINCREMENT,
+                      id SERIAL PRIMARY KEY,
                       user_id INTEGER NOT NULL,
                       fecha TEXT NOT NULL,
                       hora_entrada TEXT,
@@ -52,23 +50,22 @@ def init_db():
                       ubicacion TEXT,
                       foto TEXT,
                       FOREIGN KEY (user_id) REFERENCES users (id))''')
-    
-    # Verificar si el usuario admin ya existe
-    cursor.execute("SELECT COUNT(*) FROM users WHERE name = ?", ("admin",))
+
+    cursor.execute("SELECT COUNT(*) FROM users WHERE name = %s", ("admin",))
     if cursor.fetchone()[0] == 0:
-        hashed_password = bcrypt.hashpw("Admin07".encode('utf-8'), bcrypt.gensalt(12)).decode('utf-8')
-        cursor.execute("INSERT INTO users (name, password, role) VALUES (?, ?, ?)", 
+        hashed_password = bcrypt.hashpw("Admin07".encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+        cursor.execute("INSERT INTO users (name, password, role) VALUES (%s, %s, %s)", 
                        ("admin", hashed_password, "admin"))
     
     conn.commit()
     conn.close()
+
 
 # Ruta principal
 @app.route('/')
 def index():
     return render_template('index.html')
 
-# Ruta de inicio de sesión
 @app.route('/login', methods=['POST'])
 def login():
     name = request.form['name']
@@ -76,14 +73,14 @@ def login():
     
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT * FROM users WHERE name = ?", (name,))
+    cursor.execute("SELECT * FROM users WHERE name = %s", (name,))
     user = cursor.fetchone()
     conn.close()
 
-    if user and bcrypt.checkpw(password.encode('utf-8'), user['password'].encode('utf-8')):
-        session['user_id'] = user['id']
-        session['name'] = user['name']
-        session['role'] = user['role']
+    if user and bcrypt.checkpw(password.encode('utf-8'), user[2].encode('utf-8')):
+        session['user_id'] = user[0]
+        session['name'] = user[1]
+        session['role'] = user[3]
         flash("Inicio de sesión exitoso", "success")
         return redirect(url_for('dashboard'))
     
@@ -119,7 +116,8 @@ def register():
     conn = get_db_connection()
     cursor = conn.cursor()
     
-    cursor.execute("SELECT * FROM users WHERE name = ?", (name,))
+    cursor.execute("SELECT * FROM users WHERE name = %s", (name,))
+
     if cursor.fetchone():
         flash("El usuario ya existe", "danger")
         conn.close()
@@ -134,45 +132,35 @@ def register():
     flash("Usuario registrado con éxito", "success")
     return redirect(url_for('index'))
 
-# Ruta para manejar Check-In y Check-Out
 @app.route('/check', methods=['POST'])
 def check():
     if 'user_id' not in session:
         flash("Debes iniciar sesión", "warning")
         return redirect(url_for('index'))
-    zona_horaria = pytz.timezone('America/Mexico_City')
     
-    check_type = request.form['check_type']
-    location = request.form['location']
-    photo = request.form['photo']
+    zona_horaria = pytz.timezone('America/Mexico_City')
     ahora = datetime.now(zona_horaria)
     fecha = ahora.strftime('%Y-%m-%d')
     hora = ahora.strftime('%H:%M:%S')
     
+    check_type = request.form['check_type']
+    location = request.form['location']
+    photo = request.form['photo']
+    
     conn = get_db_connection()
     cursor = conn.cursor()
-    
+
     if check_type == "Check-In":
-        # Verificar si ya se registró el Check-In hoy
-        cursor.execute("SELECT * FROM registros WHERE user_id = ? AND fecha = ?", (session['user_id'], fecha))
-        if cursor.fetchone():
-            flash("Ya has registrado tu entrada hoy", "warning")
-        else:
-            cursor.execute("INSERT INTO registros (user_id, fecha, hora_entrada, ubicacion, foto) VALUES (?, ?, ?, ?, ?)", 
-                           (session['user_id'], fecha, hora, location, photo))
-            flash("Entrada registrada con éxito", "success")
+        cursor.execute("INSERT INTO registros (user_id, fecha, hora_entrada, ubicacion, foto) VALUES (%s, %s, %s, %s, %s)", 
+                       (session['user_id'], fecha, hora, location, photo))
     elif check_type == "Check-Out":
-        # Verificar si ya se registró el Check-Out hoy
-        cursor.execute("SELECT * FROM registros WHERE user_id = ? AND fecha = ? AND hora_salida IS NOT NULL", (session['user_id'], fecha))
-        if cursor.fetchone():
-            flash("Ya has registrado tu salida hoy", "warning")
-        else:
-            cursor.execute("UPDATE registros SET hora_salida = ?, ubicacion = ?, foto = ? WHERE user_id = ? AND fecha = ?", 
-                           (hora, location, photo, session['user_id'], fecha))
-            flash("Salida registrada con éxito", "success")
+        cursor.execute("UPDATE registros SET hora_salida = %s, ubicacion = %s, foto = %s WHERE user_id = %s AND fecha = %s", 
+                       (hora, location, photo, session['user_id'], fecha))
 
     conn.commit()
+    cursor.close()
     conn.close()
+    
     flash(f"{check_type} registrado con éxito", "success")
     return redirect(url_for('dashboard'))
 
@@ -198,7 +186,6 @@ def admin():
     
     return render_template('admin.html', users=users, registros=registros)
 
-# Ruta para agregar usuarios (solo para admin)
 @app.route('/admin/agregar_usuario', methods=['POST'])
 def agregar_usuario():
     if 'role' not in session or session['role'] != 'admin':
@@ -207,23 +194,21 @@ def agregar_usuario():
     
     name = request.form['user_name']
     password = request.form['user_password']
-    role = "empleado"  # Por defecto, los nuevos usuarios son empleados
+    role = "empleado"
 
     conn = get_db_connection()
     cursor = conn.cursor()
     
-    # Verificar si el usuario ya existe
-    cursor.execute("SELECT * FROM users WHERE name = ?", (name,))
+    cursor.execute("SELECT * FROM users WHERE name = %s", (name,))
+
     if cursor.fetchone():
         flash("El usuario ya existe", "danger")
         conn.close()
         return redirect(url_for('admin'))
     
-    # Hashear la contraseña
     hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
     
-    # Insertar el nuevo usuario en la base de datos
-    cursor.execute("INSERT INTO users (name, password, role) VALUES (?, ?, ?)", 
+    cursor.execute("INSERT INTO users (name, password, role) VALUES (%s, %s, %s)", 
                    (name, hashed_password, role))
     conn.commit()
     conn.close()
@@ -231,7 +216,6 @@ def agregar_usuario():
     flash("Usuario agregado con éxito", "success")
     return redirect(url_for('admin'))
 
-# Ruta para eliminar usuarios
 @app.route('/admin/eliminar_usuario/<int:user_id>', methods=['POST'])
 def eliminar_usuario(user_id):
     if 'role' not in session or session['role'] != 'admin':
@@ -240,16 +224,13 @@ def eliminar_usuario(user_id):
     
     conn = get_db_connection()
     cursor = conn.cursor()
-    
-    # Eliminar usuario
-    cursor.execute("DELETE FROM users WHERE id = ?", (user_id,))
+    cursor.execute("DELETE FROM users WHERE id = %s", (user_id,))
     conn.commit()
     conn.close()
     
     flash("Usuario eliminado con éxito", "success")
     return redirect(url_for('admin'))
 
-# Ruta para cambiar contraseña
 @app.route('/admin/cambiar_contraseña/<int:user_id>', methods=['POST'])
 def cambiar_contraseña(user_id):
     if 'role' not in session or session['role'] != 'admin':
@@ -261,9 +242,7 @@ def cambiar_contraseña(user_id):
     
     conn = get_db_connection()
     cursor = conn.cursor()
-    
-    # Actualizar contraseña
-    cursor.execute("UPDATE users SET password = ? WHERE id = ?", (hashed_password, user_id))
+    cursor.execute("UPDATE users SET password = %s WHERE id = %s", (hashed_password, user_id))
     conn.commit()
     conn.close()
     
@@ -299,13 +278,13 @@ def export_csv():
     # Escribir los registros en el CSV
     for registro in registros:
         writer.writerow([
-            registro['id'],
-            registro['name'],
-            registro['fecha'],
-            registro['hora_entrada'],
-            registro['hora_salida'],
-            registro['ubicacion']
-        ])
+        registro[0],  # ID
+        registro[1],  # Nombre
+        registro[2],  # Fecha
+        registro[3],  # Hora Entrada
+        registro[4],  # Hora Salida
+        registro[5]   # Ubicación
+    ])
     
     # Preparar el archivo para descargar
     output.seek(0)

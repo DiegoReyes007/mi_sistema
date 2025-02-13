@@ -65,9 +65,10 @@
                 <tbody>
                     {% for user in users %}
                     <tr>
-                        <td>{{ user.id }}</td>
-                        <td>{{ user.name }}</td>
-                        <td>{{ user.role }}</td>
+                        <td>{{ user[0] }}</td>
+                        <td>{{ user[1] }}</td>
+                        <td>{{ user[3] }}</td>
+
                         <td>
                             <form action="/admin/eliminar_usuario/{{ user.id }}" method="POST" style="display: inline;">
                                 <button type="submit" class="btn btn-danger btn-sm">Eliminar</button>
@@ -117,14 +118,15 @@
                 <tbody>
                     {% for registro in registros %}
                     <tr>
-                        <td>{{ registro.id }}</td>
-                        <td>{{ registro.nombre if registro.nombre else 'N/A' }}</td>
-                        <td>{{ registro.fecha }}</td>
-                        <td>{{ registro.hora_entrada }}</td>
-                        <td>{{ registro.hora_salida }}</td>
-                        <td>{{ registro.ubicacion }}</td>
+                        <td>{{ registro[0] }}</td>
+                        <td>{{ registro[1] if registro[1] else 'N/A' }}</td>
+                        <td>{{ registro[2] }}</td>
+                        <td>{{ registro[3] }}</td>
+                        <td>{{ registro[4] }}</td>
+                        <td>{{ registro[5] }}</td>
                         <td>
-                            <form action="{{ url_for('eliminar_registro', id=registro.id) }}" method="POST">
+                            <form action="{{ url_for('eliminar_registro', id=registro[0]) }}" method="POST">
+
                                 <button type="submit" class="btn btn-danger">Eliminar</button>
                             </form>
                             

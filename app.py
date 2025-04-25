@@ -8,41 +8,33 @@ from datetime import datetime
 import pandas as pd
 import os
 import pytz
-import psycopg2
+import calendar
+
 
 app = Flask(__name__)
 app.secret_key = 'tu_clave_secreta_segura'  # Cambia esto en producción
 
-
-
-@app.route('/admin/eliminar_registro/<int:id>', methods=['POST'])
-def eliminar_registro(id):
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute('DELETE FROM registros WHERE id = %s', (id,))
-    conn.commit()
-    cursor.close()
-    conn.close()
-
+# Función para obtener la conexión a la base de datos
 def get_db_connection():
-    DATABASE_URL = "postgresql://database_c07f_user:qRy1dJvExdCKQMFUUrNqJFvrXupP5ETs@dpg-cun45f2n91rc73ca3bag-a.oregon-postgres.render.com/database_c07f"
-    
-    conn = psycopg2.connect(DATABASE_URL)
-    return conn  # No necesitas `row_factory` en PostgreSQL
+   
+    conn = sqlite3.connect('database.db')  # Conexión a SQLite
+    conn.row_factory = sqlite3.Row  # Esto convierte las filas en diccionarios
+    return conn
 
 # Inicialización de la base de datos
 def init_db():
     conn = get_db_connection()
     cursor = conn.cursor()
-    
+
+    # Crear las tablas si no existen
     cursor.execute('''CREATE TABLE IF NOT EXISTS users (
-                      id SERIAL PRIMARY KEY,
+                      id INTEGER PRIMARY KEY AUTOINCREMENT,
                       name TEXT NOT NULL UNIQUE,
                       password TEXT NOT NULL,
                       role TEXT NOT NULL)''')
 
     cursor.execute('''CREATE TABLE IF NOT EXISTS registros (
-                      id SERIAL PRIMARY KEY,
+                      id INTEGER PRIMARY KEY AUTOINCREMENT,
                       user_id INTEGER NOT NULL,
                       fecha TEXT NOT NULL,
                       hora_entrada TEXT,
@@ -50,15 +42,52 @@ def init_db():
                       ubicacion TEXT,
                       foto TEXT,
                       FOREIGN KEY (user_id) REFERENCES users (id))''')
+    
+    cursor.execute('''CREATE TABLE IF NOT EXISTS bitacora (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                     usuario TEXT,
+                     accion TEXT,
+                     fecha TEXT
+                                )''')
 
-    cursor.execute("SELECT COUNT(*) FROM users WHERE name = %s", ("admin",))
+    # Comprobar si el usuario admin existe, si no, lo crea
+    cursor.execute("SELECT COUNT(*) FROM users WHERE name = 'admin'")
     if cursor.fetchone()[0] == 0:
         hashed_password = bcrypt.hashpw("Admin07".encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
-        cursor.execute("INSERT INTO users (name, password, role) VALUES (%s, %s, %s)", 
+        cursor.execute("INSERT INTO users (name, password, role) VALUES (?, ?, ?)", 
                        ("admin", hashed_password, "admin"))
     
     conn.commit()
     conn.close()
+
+@app.route('/admin/eliminar_registro/<int:id>', methods=['POST'])
+def eliminar_registro(id):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute('DELETE FROM registros WHERE id = ?', (id,))
+    conn.commit()
+    cursor.close()
+    conn.close()
+    flash("Registro eliminado con éxito", "success")
+    return redirect(url_for('admin'))
+
+@app.route('/admin/eliminar_todos', methods=['POST'])
+def eliminar_todos_registros():
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute('DELETE FROM registros')  # Elimina todos los registros
+    conn.commit()
+     # Registrar en bitácora
+    accion = 'Eliminación total de registros'
+    fecha = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    cursor.execute('INSERT INTO bitacora (accion, fecha) VALUES (?, ?)', (accion, fecha))
+    conn.commit()
+
+    cursor.close()
+    conn.close()
+    flash("Todos los registros han sido eliminados con éxito", "success")
+    return redirect(url_for('admin'))
+
 
 
 # Ruta principal
@@ -73,7 +102,7 @@ def login():
     
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT * FROM users WHERE name = %s", (name,))
+    cursor.execute("SELECT * FROM users WHERE name = ?", (name,))
     user = cursor.fetchone()
     conn.close()
 
@@ -82,7 +111,10 @@ def login():
         session['name'] = user[1]
         session['role'] = user[3]
         flash("Inicio de sesión exitoso", "success")
-        return redirect(url_for('dashboard'))
+        if user[1] == "admin":
+            return redirect(url_for('admin'))
+        else:
+            return redirect(url_for('dashboard'))
     
     flash("Usuario o contraseña incorrectos", "danger")
     return redirect(url_for('index'))
@@ -116,7 +148,7 @@ def register():
     conn = get_db_connection()
     cursor = conn.cursor()
     
-    cursor.execute("SELECT * FROM users WHERE name = %s", (name,))
+    cursor.execute("SELECT * FROM users WHERE name = ?", (name,))
 
     if cursor.fetchone():
         flash("El usuario ya existe", "danger")
@@ -131,7 +163,7 @@ def register():
     
     flash("Usuario registrado con éxito", "success")
     return redirect(url_for('index'))
-
+# Desarrollado por DIEGO ARTURO HERNANDEZ REYES - DAOSTEK
 @app.route('/check', methods=['POST'])
 def check():
     if 'user_id' not in session:
@@ -150,18 +182,43 @@ def check():
     conn = get_db_connection()
     cursor = conn.cursor()
 
+   
+    # Verifica si ya existe un registro para hoy
+    cursor.execute("SELECT hora_entrada, hora_salida FROM registros WHERE user_id = ? AND fecha = ?", 
+                   (session['user_id'], fecha))
+    registro = cursor.fetchone()
+
     if check_type == "Check-In":
-        cursor.execute("INSERT INTO registros (user_id, fecha, hora_entrada, ubicacion, foto) VALUES (%s, %s, %s, %s, %s)", 
-                       (session['user_id'], fecha, hora, location, photo))
+        if registro and registro['hora_entrada']:
+            flash("Ya realizaste tu Check-In hoy", "warning")
+        else:
+            if registro:
+                # Ya existe un registro para hoy, actualiza solo la hora_entrada
+                cursor.execute("UPDATE registros SET hora_entrada = ?, ubicacion = ?, foto = ? WHERE user_id = ? AND fecha = ?", 
+                               (hora, location, photo, session['user_id'], fecha))
+            else:
+                # No hay registro hoy, inserta uno nuevo
+                cursor.execute("INSERT INTO registros (user_id, fecha, hora_entrada, ubicacion, foto) VALUES (?, ?, ?, ?, ?)", 
+                               (session['user_id'], fecha, hora, location, photo))
+            conn.commit()
+            
+
     elif check_type == "Check-Out":
-        cursor.execute("UPDATE registros SET hora_salida = %s, ubicacion = %s, foto = %s WHERE user_id = %s AND fecha = %s", 
-                       (hora, location, photo, session['user_id'], fecha))
+        if registro and registro['hora_salida']:
+            flash("Ya realizaste tu Check-Out hoy", "warning")
+        elif not registro:
+            flash("Primero debes hacer Check-In antes del Check-Out", "danger")
+        else:
+            cursor.execute("UPDATE registros SET hora_salida = ?, ubicacion = ?, foto = ? WHERE user_id = ? AND fecha = ?", 
+                           (hora, location, photo, session['user_id'], fecha))
+            conn.commit()
+            flash("Check-Out registrado con éxito", "success")
 
     conn.commit()
     cursor.close()
     conn.close()
     
-    flash(f"{check_type} registrado con éxito", "success")
+   
     return redirect(url_for('dashboard'))
 
 # Ruta del panel de administración
@@ -174,12 +231,19 @@ def admin():
     conn = get_db_connection()
     cursor = conn.cursor()
     
+    conn.row_factory = sqlite3.Row
+
     # Obtener todos los usuarios
     cursor.execute("SELECT * FROM users")
     users = cursor.fetchall()
     
     # Obtener todos los registros
     cursor.execute("SELECT * FROM registros")
+    cursor.execute('''
+        SELECT registros.id,users.id AS user_id, users.name AS user_name, registros.fecha, registros.hora_entrada, registros.hora_salida, registros.ubicacion, registros.foto
+        FROM registros
+        JOIN users ON registros.user_id = users.id
+    ''')
     registros = cursor.fetchall()
     
     conn.close()
@@ -199,7 +263,7 @@ def agregar_usuario():
     conn = get_db_connection()
     cursor = conn.cursor()
     
-    cursor.execute("SELECT * FROM users WHERE name = %s", (name,))
+    cursor.execute("SELECT * FROM users WHERE name = ?", (name,))
 
     if cursor.fetchone():
         flash("El usuario ya existe", "danger")
@@ -208,7 +272,7 @@ def agregar_usuario():
     
     hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
     
-    cursor.execute("INSERT INTO users (name, password, role) VALUES (%s, %s, %s)", 
+    cursor.execute("INSERT INTO users (name, password, role) VALUES (?, ?, ?)", 
                    (name, hashed_password, role))
     conn.commit()
     conn.close()
@@ -224,7 +288,8 @@ def eliminar_usuario(user_id):
     
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("DELETE FROM users WHERE id = %s", (user_id,))
+    cursor.execute("DELETE FROM registros WHERE user_id = ?", (user_id,))
+    cursor.execute("DELETE FROM users WHERE id = ?", (user_id,))
     conn.commit()
     conn.close()
     
@@ -242,13 +307,14 @@ def cambiar_contraseña(user_id):
     
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("UPDATE users SET password = %s WHERE id = %s", (hashed_password, user_id))
+    cursor.execute("UPDATE users SET password = ? WHERE id = ?", (hashed_password, user_id))
     conn.commit()
     conn.close()
-    
     flash("Contraseña actualizada con éxito", "success")
     return redirect(url_for('admin'))
 
+    
+        
 # Ruta para exportar registros a CSV
 @app.route('/export')
 def export_csv():
@@ -260,11 +326,9 @@ def export_csv():
     cursor = conn.cursor()
     
     # Obtener todos los registros
-    cursor.execute('''
-        SELECT registros.id, users.name, registros.fecha, registros.hora_entrada, registros.hora_salida, registros.ubicacion
-        FROM registros
-        INNER JOIN users ON registros.user_id = users.id
-    ''')
+    cursor.execute('''SELECT registros.id, users.name, registros.fecha, registros.hora_entrada, registros.hora_salida, registros.ubicacion
+                      FROM registros
+                      INNER JOIN users ON registros.user_id = users.id''')
     registros = cursor.fetchall()
     conn.close()
     
@@ -277,27 +341,86 @@ def export_csv():
     
     # Escribir los registros en el CSV
     for registro in registros:
-        writer.writerow([
-        registro[0],  # ID
-        registro[1],  # Nombre
-        registro[2],  # Fecha
-        registro[3],  # Hora Entrada
-        registro[4],  # Hora Salida
-        registro[5]   # Ubicación
-    ])
+        writer.writerow([registro[0], registro[1], registro[2], registro[3], registro[4], registro[5]])
     
+    mes_actual = calendar.month_name[datetime.now().month]
+    nombre_archivo = f'registros_{mes_actual}.csv'
+
     # Preparar el archivo para descargar
     output.seek(0)
     return send_file(
         io.BytesIO(output.getvalue().encode()),
         mimetype='text/csv',
         as_attachment=True,
-        download_name='registros_asistencia.csv'
+        download_name=nombre_archivo
     )
 
 
 
-# Inicialización de la base de datos y ejecución de la aplicación
+def borrar_visitas_y_fotos():
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute('DELETE FROM registros')  # Elimina todos los registros
+    conn.commit()
+     # Registrar en bitácora
+    accion = 'Eliminación total de registros'
+    fecha = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    cursor.execute('INSERT INTO bitacora (accion, fecha) VALUES (?, ?)', (accion, fecha))
+    conn.commit()
+
+    cursor.close()
+    conn.close()
+    flash("Todos los registros han sido eliminados con éxito", "success")
+    return redirect(url_for('admin'))
+
+@app.route('/borrar_visitas', methods=['POST'])
+def borrar_visitas():
+    borrar_visitas_y_fotos()
+
+# Ruta para exportar registros a CSV
+@app.route('/descargar_respaldo')
+def descargar_respaldo():
+    if 'role' not in session or session['role'] != 'admin':
+        flash("Acceso denegado", "danger")
+        return redirect(url_for('index'))
+    
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    # Obtener todos los registros
+    cursor.execute('''SELECT registros.id, users.name, registros.fecha, registros.hora_entrada, registros.hora_salida, registros.ubicacion
+                      FROM registros
+                      INNER JOIN users ON registros.user_id = users.id''')
+    registros = cursor.fetchall()
+    conn.close()
+    
+    # Crear un archivo CSV en memoria
+    output = io.StringIO()
+    writer = csv.writer(output, quoting=csv.QUOTE_NONNUMERIC)
+    
+    # Escribir la cabecera del CSV
+    writer.writerow(["ID", "Nombre", "Fecha", "Hora Entrada", "Hora Salida", "Ubicación"])
+    
+    # Escribir los registros en el CSV
+    for registro in registros:
+        writer.writerow([registro[0], registro[1], registro[2], registro[3], registro[4], registro[5]])
+    
+    mes_actual = calendar.month_name[datetime.now().month]
+    nombre_archivo = f'registros_{mes_actual}.csv'
+
+    # Preparar el archivo para descargar
+    output.seek(0)
+    return send_file(
+        io.BytesIO(output.getvalue().encode()),
+        mimetype='text/csv',
+        as_attachment=True,
+        download_name=nombre_archivo
+    )
+
+# Inicialización de la base de datos
+init_db()
+
+
+
 if __name__ == '__main__':
-    init_db()
     app.run(debug=True)

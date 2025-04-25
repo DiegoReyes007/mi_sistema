@@ -73,32 +73,65 @@
                 {% endfor %}
             </div>
         {% endif %}
-    {% endwith %}
+    {% endwith %} 
 
     <!-- Cámara -->
-    <video id="video" autoplay style="width: 100%; max-width: 300px;"></video>
+    <video id="video" autoplay style="width: 100%;" class="video"></video>
 
     <!-- Check-In -->
+    <div class="container mt-4">
+        <div class="row justify-content-center">
+            <div class="col-12 col-sm-8 col-md-6">
+                <div class="d-grid gap-3"> 
     <form id="checkin-form" method="POST" action="/check">
         <input type="hidden" name="check_type" value="Check-In">
         <input type="hidden" id="location_checkin" name="location">
         <input type="hidden" id="photo_checkin" name="photo">
         <button type="button" class="btn btn-primary" onclick="getLocationAndPhoto('checkin')">Check-In</button>
     </form>
+</div>
+</div>
+</div>
+</div>
 <br>
 <br>
+<!-- DAOSTEK-DIEGO ARTURO HERNANDEZ REYES -->
     <!-- Check-Out -->
+    <div class="container mt-4">
+        <div class="row justify-content-center">
+            <div class="col-12 col-sm-8 col-md-6">
+                <div class="d-grid gap-3">
     <form id="checkout-form" method="POST" action="/check">
         <input type="hidden" name="check_type" value="Check-Out">
         <input type="hidden" id="location_checkout" name="location">
         <input type="hidden" id="photo_checkout" name="photo">
         <button type="button" class="btn btn-danger" onclick="getLocationAndPhoto('checkout')">Check-Out</button>
     </form>
+    </div>
+</div>
+</div>
+</div>
     <br>
     <br>
     <br>
     <a href="/logout">Cerrar sesión</a>
 
+
+
+    <script>
+        // Espera a que el DOM esté cargado
+        document.addEventListener("DOMContentLoaded", function() {
+            // Obtén el contenedor de alertas
+            var alertContainer = document.getElementById("alert-container");
+    
+            // Si el contenedor de alertas existe, inicia un temporizador para ocultarlo
+            if (alertContainer) {
+                setTimeout(function() {
+                    alertContainer.style.display = "none";
+                }, 5000);  // 5000 milisegundos = 5 segundos
+            }
+        });
+    </script>
 
 
 </body>

@@ -1,41 +1,182 @@
-body {
-    font-family: Arial, sans-serif;
-    background: #f4f4f4;
-    text-align: center;
+/* === RESET & BASE === */
+* {
+    box-sizing: border-box;
 }
 
+body {
+    font-family: Arial, sans-serif;
+    background: #ffffff;
+    text-align: center;
+    margin: 0;
+    padding: 0;
+}
+
+.navbar>.container, .navbar>.container-fluid, .navbar>.container-lg, .navbar>.container-md, .navbar>.container-sm, .navbar>.container-xl, .navbar>.container-xxl {
+    display: flex;
+    flex-wrap: revert;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.navbar>.container, .navbar>.container-fluid, .navbar>.container-lg, .navbar>.container-md, .navbar>.container-sm, .navbar>.container-xl, .navbar>.container-xxl {
+    display: flex;
+    flex-wrap: revert;
+    align-items: center;
+    justify-content: space-between;
+}
+
+
+.padding-navbar {
+    padding-top: 100px !important; /* o lo que necesites */
+}
+.content-below-navbar {
+    margin-top: 80px; /* o ajusta según la altura real del navbar */
+}
+/* === CONTENEDOR DE LOGIN === */
 .login-container {
     background: white;
     padding: 20px;
-    width: 300px;
+    width: 90%;
+    max-width: 400px;
     margin: 100px auto;
     box-shadow: 0px 0px 10px gray;
+    border-radius: 10px;
 }
 
+/* === BOTONES === */
 button {
     background: blue;
     color: white;
     border: none;
     padding: 10px;
     cursor: pointer;
+    width: 100%;
+    font-size: 1em;
+    border-radius: 5px;
+    transition: background 0.3s ease;
 }
 
+button:hover {
+    background: darkblue;
+}
+
+button.btn {
+    font-size: 1.0rem;
+    padding: 2px;
+    border-radius: 10px;
+    width: 100%;
+}
+
+/* === ALERTAS === */
 .alert-container {
     position: fixed;
     top: 20px;
     right: 20px;
     z-index: 1000;
 }
+
 .alert {
     padding: 10px;
     margin-bottom: 10px;
     border-radius: 5px;
 }
+
 .alert-success {
     background-color: #d4edda;
     color: #155724;
 }
+
 .alert-warning {
     background-color: #fff3cd;
     color: #856404;
+}
+
+/* === VIDEO === */
+#video {
+    width: 100%;
+    height: auto;
+    border-radius: 10px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+    margin-top: 10px;
+    max-width: 300px;
+}
+
+
+
+/* Pantallas grandes */
+@media screen and (max-width: 600px) {
+    button.btn {
+        font-size: 4.5rem;
+        padding: 145px;
+        border-radius: 100px;
+    }
+
+    #video {
+        max-width: 700px;
+    }
+}
+
+@media screen and (max-width: 700px) {
+    button.btn {
+        font-size: 2.5rem;
+        padding: 100px;
+        border-radius: 50px;
+    }
+
+    #video {
+        max-width: 500px;
+    }
+}
+
+@media screen and (max-width: 1074px) {
+    button.btn {
+        font-size: .9rem;
+        padding: 0px;
+        border-radius: 50px;
+    }
+
+@media screen and (min-width: 1000px) {
+        button.btn {
+            font-size: 1.5rem;
+            padding: 30px;
+            border-radius: 50px;
+        }
+    
+    #video {
+        max-width: 300px;
+    }
+
+    .btn-danger {
+        padding: 20px;
+    }
+}
+}
+
+
+.alert-container {
+    position: fixed; /* Fija el contenedor en la pantalla */
+    top: 10%; /* Lo centra verticalmente */
+    left: 50%; /* Lo centra horizontalmente */
+    transform: translate(-50%, -50%); /* Ajusta el punto de referencia para un centrado exacto */
+    z-index: 9999; /* Asegúrate de que esté encima de otros elementos */
+    width: auto; /* El ancho se ajusta al contenido */
+    max-width: 90%; /* El ancho no debe superar el 90% de la pantalla */
+    padding: 15px;
+    background-color: rgb(0, 0, 0); /* Fondo oscuro translúcido */
+    color: white; /* Texto blanco para mayor visibilidad */
+    opacity: 1;
+    transition: opacity 0.5s ease; /* Transición para desvanecerse */
+    animation: fadeOut 6s forwards;
+    opacity: 1;
+    align-items: center;
+}
+
+@keyframes fadeOut {
+    0% {
+        opacity: 1;
+    }
+    100% {
+        opacity: 0;
+        display: none;
+    }
 }

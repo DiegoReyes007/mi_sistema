@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
+    <!-- DAOSTEK-DIEGO ARTURO HERNANDEZ REYES -->
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Registro de Asistencia BAO</title>
@@ -25,15 +26,31 @@
 
         <form id="loginForm" action="/login" method="POST">
             <div class="mb-3">
-                <input type="text" id="userID" name="name" class="form-control" placeholder="Nombre (Mayusculas)" required>
+                <input type="text" id="userID" name="name" class="form-control" placeholder="Usuario" required>
             </div>
             <div class="mb-3">
                 <input type="password" id="password" name="password" class="form-control" placeholder="Contraseña" required>
             </div>
             <button type="submit" class="btn btn-primary w-100">Ingresar</button>
         </form>
-        <p class="mt-3 text-muted">El Nombre debera ser en Mayusculas.</p>
-        <p class="mt-3 text-muted">Si no puedes ingresar, favor de notificar.</p>
+        <p class="mt-3 text-muted">Verifica que el nombre de usuario este bien escrito.</p>
+        <p class="mt-3 text-muted">Si no puedes ingresar, favor de notificar al Administrador.</p>
     </div>
+
+
+    <script>
+        // Espera a que el DOM esté cargado
+        document.addEventListener("DOMContentLoaded", function() {
+            // Obtén el contenedor de alertas
+            var alertContainer = document.getElementById("alert-container");
+    
+            // Si el contenedor de alertas existe, inicia un temporizador para ocultarlo
+            if (alertContainer) {
+                setTimeout(function() {
+                    alertContainer.style.display = "none";
+                }, 5000);  // 5000 milisegundos = 5 segundos
+            }
+        });
+    </script>
 </body>
 </html>

@@ -4,40 +4,54 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Panel de Administrador</title>
+    
+
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
-    <link rel="icon" href="{{ url_for('static', filename='img/favicon.ico') }}">
+
 </head>
+<style>
+    .padding-navbar {
+            padding-top: 100px; /* Ajusta según el alto de tu navbar */
+        }
+</style>
 <body>
-    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary fixed-top">
         <div class="container">
             <a class="navbar-brand" href="#">Admin Panel</a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
                 <span class="navbar-toggler-icon"></span>
             </button>
+                <a href="#" class="btn btn-info text-white">
+                    <i class="bi bi-cloud"></i> Subir a la Nube
+                </a>
+            
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav ms-auto">
-                    <li class="nav-item"><a class="nav-link" href="/admin">Inicio</a></li>
-                    <li class="nav-item"><a class="nav-link" href="/admin/usuarios">Usuarios</a></li>
-                    <li class="nav-item"><a class="nav-link" href="/admin/registros">Registros</a></li>
-                    <li class="nav-item"><a class="nav-link text-danger" href="/logout">Salir</a></li>
+                    <li class="nav-item">
+                        <form action="/logout" method="GET" class="d-inline">
+                            <button type="submit" class="btn btn-danger">Cerrar Sistema</button>
+                        </form>
+                    </li>
                 </ul>
             </div>
         </div>
-    </nav>
-    
-    <div class="container mt-4">
-        <h2 class="text-center">Gestión de Usuarios</h2>
+       
         
+        
+    </nav>
+    <div class="container padding-navbar">
+ 
+        <h2 class="text-center">Gestión de Usuarios</h2>
+        <!-- DAOSTEK-DIEGO ARTURO HERNANDEZ REYES -->
         <!-- Formulario para agregar usuarios -->
         <form id="user-form" class="mb-4" action="/admin/agregar_usuario" method="POST">
             <div class="row">
+                
                 <div class="col-md-4">
-                    <input type="text" id="user-id" name="user_id" class="form-control" placeholder="ID de usuario" required>
+                    <input type="text" id="user-name" name="user_name" class="form-control" placeholder="Nombre de usuario / Numero de Empleado" required>
                 </div>
-                <div class="col-md-4">
-                    <input type="text" id="user-name" name="user_name" class="form-control" placeholder="Nombre de usuario" required>
-                </div>
+                <br>
                 <div class="col-md-4">
                     <input type="password" id="user-password" name="user_password" class="form-control" placeholder="Contraseña" required>
                 </div>
@@ -49,7 +63,7 @@
                 </div>
             </div>
         </form>
-
+    </div>
         <!-- Tabla de usuarios -->
         <h3 class="text-center">Lista de Usuarios</h3>
         <div class="table-responsive">
@@ -65,14 +79,16 @@
                 <tbody>
                     {% for user in users %}
                     <tr>
-                        <td>{{ user[0] }}</td>
-                        <td>{{ user[1] }}</td>
-                        <td>{{ user[3] }}</td>
+                        <td>{{ user['id'] }}</td>
+                        <td>{{ user['name'] }}</td>
+                        <td>{{ user['role'] }}</td>
 
                         <td>
-                            <form action="/admin/eliminar_usuario/{{ user.id }}" method="POST" style="display: inline;">
+                            {% if user['role'] != 'admin' %}
+                            <form action="{{ url_for('eliminar_usuario', user_id=user[0]) }}" method="POST" style="display: inline;" class="form-eliminar-usuario">
                                 <button type="submit" class="btn btn-danger btn-sm">Eliminar</button>
                             </form>
+                            {% endif %}
                             <button class="btn btn-warning btn-sm" data-bs-toggle="modal" data-bs-target="#cambiarContraseñaModal{{ user.id }}">Cambiar Contraseña</button>
                         </td>
                     </tr>
@@ -85,7 +101,7 @@
                                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                                 </div>
                                 <div class="modal-body">
-                                    <form action="/admin/cambiar_contraseña/{{ user.id }}" method="POST">
+                                    <form  action="{{ url_for('cambiar_contraseña', user_id=user['id']) }}" method="POST">
                                         <div class="mb-3">
                                             <label for="nueva_contraseña" class="form-label">Nueva Contraseña</label>
                                             <input type="password" class="form-control" id="nueva_contraseña" name="nueva_contraseña" required>
@@ -103,9 +119,22 @@
 
         <!-- Tabla de registros -->
         <h3 class="text-center">Registros de Empleados</h3>
+        
         <div class="table-responsive">
+            
             <table class="table table-hover table-bordered mt-3">
+        
                 <thead class="table-dark">
+                    <tr>
+                        <th><input type="text" id="searchId" class="form-control form-control-sm" placeholder="Buscar por ID" onkeyup="searchTable()"></th>
+                        <th><input type="text" id="searchName" class="form-control form-control-sm" placeholder="Buscar por nombre" onkeyup="searchTable()"></th>
+                        <th><input type="text" id="searchDate" class="form-control form-control-sm" placeholder="Buscar por fecha" onkeyup="searchTable()"></th>
+                    </tr> 
+                    <div class="text-center mt-3">
+
+                        <a href="{{ url_for('export_csv') }}" class="btn btn-success">Exportar a Excel</a>
+            
+                    </div>
                     <tr>
                         <th>ID</th>
                         <th>Nombre</th>
@@ -114,18 +143,25 @@
                         <th>Hora Salida</th>
                         <th>Ubicación</th>
                     </tr>
+                    
+                           
                 </thead>
-                <tbody>
+                <form action="{{ url_for('eliminar_todos_registros') }}" method="post" class="form-eliminar-todos">
+                    <button type="submit" style="background-color: red; color: white; padding: 10px; margin: 10px;">
+                        Eliminar Todos los Registros
+                    </button>
+                </form>
+                <tbody id="tableBody">
                     {% for registro in registros %}
                     <tr>
-                        <td>{{ registro[0] }}</td>
-                        <td>{{ registro[1] if registro[1] else 'N/A' }}</td>
-                        <td>{{ registro[2] }}</td>
-                        <td>{{ registro[3] }}</td>
-                        <td>{{ registro[4] }}</td>
-                        <td>{{ registro[5] }}</td>
+                        <td>{{ registro['user_id'] }}</td> <!-- Accede a 'id' como una clave -->
+                        <td>{{ registro['user_name']}}</td> 
+                        <td>{{ registro['fecha'] }}</td>  <!-- Accede a 'fecha' como una clave -->
+                        <td>{{ registro['hora_entrada'] }}</td>  <!-- Accede a 'hora_entrada' como una clave -->
+                        <td>{{ registro['hora_salida'] }}</td>  <!-- Accede a 'hora_salida' como una clave -->
+                        <td>{{ registro['ubicacion'] }}</td>  <!-- Accede a 'ubicacion' como una clave -->
                         <td>
-                            <form action="{{ url_for('eliminar_registro', id=registro[0]) }}" method="POST">
+                            <form action="{{ url_for('eliminar_registro', id=registro[0]) }}" method="POST" class="f-eliminar-regi">
 
                                 <button type="submit" class="btn btn-danger">Eliminar</button>
                             </form>
@@ -137,12 +173,37 @@
                 </tbody>
             </table>
         </div>
+        <script>
+            function searchTable() {
+            const searchId = document.getElementById('searchId').value.toLowerCase();
+            const searchName = document.getElementById('searchName').value.toLowerCase();
+            const searchDate = document.getElementById('searchDate').value.toLowerCase();
+            const rows = document.querySelectorAll('#tableBody tr');
+        
+            rows.forEach(row => {
+                const idCell = row.cells[0]?.textContent.toLowerCase();
+                const nameCell = row.cells[1]?.textContent.toLowerCase();
+                const dateCell = row.cells[2]?.textContent.toLowerCase();
+        
+                const matchesId = idCell.includes(searchId);
+                const matchesName = nameCell.includes(searchName);
+                const matchesDate = dateCell.includes(searchDate);
+        
+                if ((searchId === '' || matchesId) &&
+                    (searchName === '' || matchesName) &&
+                    (searchDate === '' || matchesDate)) {
+                    row.style.display = '';
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+        }
+        
+</script>
 
-        <div class="text-center mt-3">
 
-            <a href="{{ url_for('export_csv') }}" class="btn btn-success">Exportar a Excel</a>
 
-        </div>
+        
     </div>
 
     </div>
@@ -173,5 +234,215 @@
         });
     </script>
 
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script>
+    // Confirmación para eliminar registro unico
+    document.addEventListener('DOMContentLoaded', function () {
+        // Confirmación para eliminar registro unico
+        document.querySelectorAll('.f-eliminar-regi').forEach(form => {
+            form.addEventListener('submit', function (e) {
+                e.preventDefault();
+                Swal.fire({
+                    title: '¿Eliminar Registro?',
+                    text: "¡No podrás deshacer esta acción!",
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonColor: '#d33',
+                    cancelButtonColor: '#3085d6',
+                    confirmButtonText: 'Sí, eliminar',
+                    cancelButtonText: 'Cancelar'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        form.submit();
+                    }
+                });
+            });
+        });
+    });
+</script>
+<script>
+    // Confirmación para eliminar todo registro
+    document.querySelectorAll('.form-eliminar-todos').forEach(form => {
+        form.addEventListener('submit', function (e) {
+            e.preventDefault();
+            Swal.fire({
+                title: '¿Estas Seguro De Eliminar Todos Los Registros?',
+                text: "Esta acción eliminará todos los registro de la base de datos.",
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                cancelButtonColor: '#3085d6',
+                confirmButtonText: 'Sí, eliminar',
+                cancelButtonText: 'Cancelar'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    form.submit();
+                }
+            });
+        });
+    });
+</script>
+<script>
+    // Confirmación para eliminar usuario
+    document.querySelectorAll('.form-eliminar-usuario').forEach(form => {
+        form.addEventListener('submit', function (e) {
+            e.preventDefault();
+            Swal.fire({
+                title: '¿Estas Seguro De Eliminar Usuario',
+                text: "Esta acción eliminará el usuario de la base de datos.",
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                cancelButtonColor: '#3085d6',
+                confirmButtonText: 'Sí, eliminar',
+                cancelButtonText: 'Cancelar'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    form.submit();
+                }
+            });
+        });
+    });
+</script>
+
+
+<!-- MODAL DE FIN DE MES -->
+<div id="finMesModal" class="modal">
+    <div class="modal-content">
+      <h2>📅 Fin de mes</h2>
+      <p>Hoy es fin de mes. ¿Deseas descargar el respaldo antes de borrar los registros?</p>
+      <div class="modal-buttons">
+        <button class="btn btn-primary" id="confirmarRespaldo">Sí, descargar respaldo</button>
+        <button class="btn btn-secondary" id="cancelarRespaldo">Cancelar</button>
+      </div>
+    </div>
+  </div>
+  
+  <style>
+    .modal {
+      display: none;
+      position: fixed;
+      z-index: 999;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      backdrop-filter: blur(4px);
+      background-color: rgba(0, 0, 0, 0.4);
+      align-items: center;
+      justify-content: center;
+    }
+  
+    .modal-content {
+      background: white;
+      border-radius: 15px;
+      padding: 30px;
+      max-width: 400px;
+      text-align: center;
+      box-shadow: 0px 0px 20px rgba(0,0,0,0.2);
+      animation: fadeIn 0.4s ease;
+    }
+  
+    .modal-content h2 {
+      margin-bottom: 10px;
+      font-size: 22px;
+    }
+  
+    .modal-content p {
+      font-size: 16px;
+      margin-bottom: 20px;
+    }
+  
+    .modal-buttons {
+      display: flex;
+      justify-content: space-around;
+      gap: 10px;
+    }
+  
+    .btn {
+      padding: 10px 20px;
+      border-radius: 8px;
+      border: none;
+      cursor: pointer;
+      font-weight: bold;
+    }
+  
+    .btn-primary {
+      background-color: #4CAF50;
+      color: white;
+    }
+  
+    .btn-secondary {
+      background-color: #ccc;
+      color: black;
+    }
+
+    .modal-backdrop.show {
+    opacity: 0;
+    }
+   
+  
+    @keyframes fadeIn {
+      from {opacity: 0; transform: scale(0.95);}
+      to {opacity: 1; transform: scale(1);}
+    }
+  </style>
+
+
+  <script>
+    document.addEventListener("DOMContentLoaded", function () {
+      const today = new Date();
+      const lastDayOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+      const todayStr = today.toISOString().split('T')[0];
+      const respaldoRealizado = localStorage.getItem("respaldoRealizado");
+      if (respaldoRealizado && respaldoRealizado !== todayStr) {
+      localStorage.removeItem("respaldoRealizado");
+    }
+      // Solo mostrar modal si HOY es el último día del mes Y no se ha hecho respaldo hoy
+      if (today.toDateString() === lastDayOfMonth.toDateString() && respaldoRealizado !== todayStr) {
+        document.getElementById("finMesModal").style.display = "flex";
+    
+        document.getElementById("confirmarRespaldo").addEventListener("click", () => {
+          // Guardar que ya se hizo respaldo hoy
+          localStorage.setItem("respaldoRealizado", todayStr);
+    
+          // Descargar respaldo
+          window.location.href = "/descargar_respaldo";
+    
+          // Borrar visitas después de 3 segundos
+          setTimeout(() => {
+            fetch('/borrar_visitas', { method: 'POST' })
+              .then(res => res.json())
+              .then(data => {
+                if (data.success) {
+                  alert("Respaldo descargado y registros eliminados.");
+                  location.reload();
+                }
+              });
+          }, 3000);
+    
+          document.getElementById("finMesModal").style.display = "none";
+        });
+    
+        document.getElementById("cancelarRespaldo").addEventListener("click", () => {
+          document.getElementById("finMesModal").style.display = "none";
+        });
+      }
+    });
+    </script>
+    
+    <!-- Bootstrap 5 CSS (debes tenerlo en el <head>) -->
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+
+<!-- Bootstrap 5 JS Bundle (necesario para que funcione la X y otros componentes JS) -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+
+
+<!-- Bootstrap Icons -->
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
+<!-- Enlazar Bootstrap desde el CDN -->
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css" rel="stylesheet">
 </body>
 </html>
